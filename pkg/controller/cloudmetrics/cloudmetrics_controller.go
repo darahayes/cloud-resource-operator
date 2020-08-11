@@ -5,6 +5,7 @@ package cloudmetrics
 
 import (
 	"context"
+
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/integr8ly/cloud-resource-operator/pkg/providers"
 	"github.com/integr8ly/cloud-resource-operator/pkg/providers/aws"
@@ -25,14 +26,6 @@ import (
 )
 
 const (
-	postgresFreeStorageAverage    = "cro_postgres_free_storage_average"
-	postgresCPUUtilizationAverage = "cro_postgres_cpu_utilization_average"
-	postgresFreeableMemoryAverage = "cro_postgres_freeable_memory_average"
-
-	redisMemoryUsagePercentageAverage = "cro_redis_memory_usage_percentage_average"
-	redisFreeableMemoryAverage        = "cro_redis_freeable_memory_average"
-	redisCPUUtilizationAverage        = "cro_redis_cpu_utilization_average"
-
 	labelClusterIDKey   = "clusterID"
 	labelResourceIDKey  = "resourceID"
 	labelNamespaceKey   = "namespace"
@@ -62,48 +55,48 @@ type CroGaugeMetric struct {
 // to add any addition metrics simply add to this mapping and it will be scraped and exposed
 var postgresGaugeMetrics = []CroGaugeMetric{
 	{
-		Name: postgresFreeStorageAverage,
+		Name: resources.PostgresFreeStorageAverage,
 		GaugeVec: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: postgresFreeStorageAverage,
+				Name: resources.PostgresFreeStorageAverage,
 				Help: "The amount of available storage space. Units: Bytes",
 			},
 			labels),
 		ProviderType: map[string]providers.CloudProviderMetricType{
 			providers.AWSDeploymentStrategy: {
-				PromethuesMetricName: postgresFreeStorageAverage,
+				PromethuesMetricName: resources.PostgresFreeStorageAverage,
 				ProviderMetricName:   "FreeStorageSpace",
 				Statistic:            cloudwatch.StatisticAverage,
 			},
 		},
 	},
 	{
-		Name: postgresCPUUtilizationAverage,
+		Name: resources.PostgresCPUUtilizationAverage,
 		GaugeVec: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: postgresCPUUtilizationAverage,
+				Name: resources.PostgresCPUUtilizationAverage,
 				Help: "The percentage of CPU utilization. Units: Percent",
 			},
 			labels),
 		ProviderType: map[string]providers.CloudProviderMetricType{
 			providers.AWSDeploymentStrategy: {
-				PromethuesMetricName: postgresCPUUtilizationAverage,
+				PromethuesMetricName: resources.PostgresCPUUtilizationAverage,
 				ProviderMetricName:   "CPUUtilization",
 				Statistic:            cloudwatch.StatisticAverage,
 			},
 		},
 	},
 	{
-		Name: postgresFreeableMemoryAverage,
+		Name: resources.PostgresFreeableMemoryAverage,
 		GaugeVec: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: postgresFreeableMemoryAverage,
+				Name: resources.PostgresFreeableMemoryAverage,
 				Help: "The amount of available random access memory. Units: Bytes",
 			},
 			labels),
 		ProviderType: map[string]providers.CloudProviderMetricType{
 			providers.AWSDeploymentStrategy: {
-				PromethuesMetricName: postgresFreeableMemoryAverage,
+				PromethuesMetricName: resources.PostgresFreeableMemoryAverage,
 				ProviderMetricName:   "FreeableMemory",
 				Statistic:            cloudwatch.StatisticAverage,
 			},
@@ -115,16 +108,16 @@ var postgresGaugeMetrics = []CroGaugeMetric{
 // to add any addition metrics simply add to this mapping and it will be scraped and exposed
 var redisGaugeMetrics = []CroGaugeMetric{
 	{
-		Name: redisMemoryUsagePercentageAverage,
+		Name: resources.RedisMemoryUsagePercentageAverage,
 		GaugeVec: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: redisMemoryUsagePercentageAverage,
+				Name: resources.RedisMemoryUsagePercentageAverage,
 				Help: "The percentage of redis used memory. Units: Bytes",
 			},
 			labels),
 		ProviderType: map[string]providers.CloudProviderMetricType{
 			providers.AWSDeploymentStrategy: {
-				PromethuesMetricName: redisMemoryUsagePercentageAverage,
+				PromethuesMetricName: resources.RedisMemoryUsagePercentageAverage,
 				//calculated on used_memory/maxmemory from Redis INFO http://redis.io/commands/info
 				ProviderMetricName: "DatabaseMemoryUsagePercentage",
 				Statistic:          cloudwatch.StatisticAverage,
@@ -132,32 +125,32 @@ var redisGaugeMetrics = []CroGaugeMetric{
 		},
 	},
 	{
-		Name: redisFreeableMemoryAverage,
+		Name: resources.RedisFreeableMemoryAverage,
 		GaugeVec: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: redisFreeableMemoryAverage,
+				Name: resources.RedisFreeableMemoryAverage,
 				Help: "The amount of available random access memory. Units: Bytes",
 			},
 			labels),
 		ProviderType: map[string]providers.CloudProviderMetricType{
 			providers.AWSDeploymentStrategy: {
-				PromethuesMetricName: redisFreeableMemoryAverage,
+				PromethuesMetricName: resources.RedisFreeableMemoryAverage,
 				ProviderMetricName:   "FreeableMemory",
 				Statistic:            cloudwatch.StatisticAverage,
 			},
 		},
 	},
 	{
-		Name: redisCPUUtilizationAverage,
+		Name: resources.RedisCPUUtilizationAverage,
 		GaugeVec: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: redisCPUUtilizationAverage,
+				Name: resources.RedisCPUUtilizationAverage,
 				Help: "The percentage of CPU utilization. Units: Percent",
 			},
 			labels),
 		ProviderType: map[string]providers.CloudProviderMetricType{
 			providers.AWSDeploymentStrategy: {
-				PromethuesMetricName: redisCPUUtilizationAverage,
+				PromethuesMetricName: resources.RedisCPUUtilizationAverage,
 				ProviderMetricName:   "CPUUtilization",
 				Statistic:            cloudwatch.StatisticAverage,
 			},

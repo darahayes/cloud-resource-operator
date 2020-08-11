@@ -2,9 +2,14 @@ package aws
 
 import (
 	"context"
+	"fmt"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/elasticache"
 	"github.com/aws/aws-sdk-go/service/elasticache/elasticacheiface"
 	"github.com/integr8ly/cloud-resource-operator/pkg/apis/integreatly/v1alpha1"
@@ -13,7 +18,6 @@ import (
 	errorUtil "github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 const (
@@ -69,10 +73,37 @@ func (r *RedisMetricsProvider) ScrapeRedisMetrics(ctx context.Context, redis *v1
 		return nil, errorUtil.Wrap(err, "failed to create aws session to scrape elasticache cloud watch metrics")
 	}
 
+	elastiCacheApi := elasticache.New(sess)
+	ec2API := ec2.New(sess)
+
 	// scrape metric data from cloud watch
 	cloudMetrics, err := r.scrapeRedisCloudWatchMetricData(ctx, cloudwatch.New(sess), redis, elasticache.New(sess), metricTypes)
 	if err != nil {
 		return nil, errorUtil.Wrap(err, "failed to scrape elasticache cloud watch metrics")
+	}
+
+	for _, metric := range cloudMetrics {
+		if metric.Name == resources.RedisCPUUtilizationAverage {
+			resourceID := metric.Labels["resourceID"]
+			foundCache, err := r.getReplicationGroupForRedisResource(ctx, resourceID, elastiCacheApi)
+
+			failedToCalculateError := fmt.Sprintf("failed to calculate CPU utilization for redis resource %v", resourceID)
+
+			if err != nil {
+				logger.Error(errorUtil.Wrapf(err, failedToCalculateError))
+				break
+			}
+
+			if foundCache == nil {
+				err := errorUtil.Errorf("redis metrics failed to find cache in replication group")
+				logger.Error(errorUtil.Wrapf(err, failedToCalculateError))
+				break
+			}
+
+			//TODO handle error
+			numVCPUS, _ := getVCPUsforCacheNodeType(*foundCache.CacheNodeType, ec2API)
+			metric.Value = metric.Value * float64(numVCPUS)
+		}
 	}
 
 	return &providers.ScrapeMetricsData{
@@ -98,19 +129,13 @@ func (r *RedisMetricsProvider) scrapeRedisCloudWatchMetricData(ctx context.Conte
 	}
 
 	var metrics []*providers.GenericCloudMetric
-	listOutput, err := elastiCacheApi.DescribeReplicationGroups(&elasticache.DescribeReplicationGroupsInput{})
+
+	foundCache, err := r.getReplicationGroupForRedisResource(ctx, resourceID, elastiCacheApi)
+
 	if err != nil {
-		return nil, errorUtil.Wrap(err, "failed redis metrics to describe replicationGroups")
+		return nil, err
 	}
-	replicationGroups := listOutput.ReplicationGroups
-	// Metrics are returned per node for ElastiCache
-	var foundCache *elasticache.ReplicationGroup
-	for _, c := range replicationGroups {
-		if *c.ReplicationGroupId == resourceID {
-			foundCache = c
-			break
-		}
-	}
+
 	if foundCache == nil {
 		return nil, errorUtil.Errorf("redis metrics failed to find cache in replication group")
 	}
@@ -188,4 +213,26 @@ func buildRedisMetricDataQuery(cacheClusterId string, metricTypes []providers.Cl
 		})
 	}
 	return metricDataQueries
+}
+
+func (r *RedisMetricsProvider) getReplicationGroupForRedisResource(ctx context.Context, resourceID string, elastiCacheApi elasticacheiface.ElastiCacheAPI) (*elasticache.ReplicationGroup, error) {
+	listOutput, err := elastiCacheApi.DescribeReplicationGroups(&elasticache.DescribeReplicationGroupsInput{})
+	if err != nil {
+		return nil, errorUtil.Wrap(err, "failed describe replicationGroups for redis metrics")
+	}
+	replicationGroups := listOutput.ReplicationGroups
+	// Metrics are returned per node for ElastiCache
+	var foundCache *elasticache.ReplicationGroup
+	for _, c := range replicationGroups {
+		if *c.ReplicationGroupId == resourceID {
+			foundCache = c
+			break
+		}
+	}
+	return foundCache, nil
+}
+
+// TODO: Implement me
+func getVCPUsforCacheNodeType(cacheNodeType string, ec2 ec2iface.EC2API) (int, error) {
+	return 1, nil
 }
